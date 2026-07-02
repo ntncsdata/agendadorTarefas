@@ -2,17 +2,13 @@ package com.javanauta.agendadoratarefas.infrastructure.security;
 
 import com.javanauta.agendadoratarefas.business.dto.UsuarioDTO;
 import com.javanauta.agendadoratarefas.infrastructure.client.UsuarioClient;
-import com.javanauta.aprendendospring.infrastructure.entity.Usuario;
-import com.javanauta.aprendendospring.infrastructure.repository.UsuarioRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 @Service
-public class UserDetailsServiceImpl implements UserDetailsService {
+public class UserDetailsServiceImpl {
 
     @Autowired
     private UsuarioClient client;
