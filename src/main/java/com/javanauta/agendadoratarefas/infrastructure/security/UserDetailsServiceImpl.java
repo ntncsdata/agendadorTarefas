@@ -5,10 +5,12 @@ import com.javanauta.agendadoratarefas.infrastructure.client.UsuarioClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 @Service
-public class UserDetailsServiceImpl {
+public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Autowired
     private UsuarioClient client;
@@ -21,5 +23,10 @@ public class UserDetailsServiceImpl {
                 .withUsername(usuarioDTO.getEmail()) // Define o nome de usuário como o e-mail
                 .password(usuarioDTO.getSenha()) // Define a senha do usuário
                 .build(); // Constrói o objeto UserDetails
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        return null;
     }
 }
