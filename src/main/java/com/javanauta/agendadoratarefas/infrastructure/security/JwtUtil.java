@@ -5,7 +5,6 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Service;
 
-import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
@@ -27,6 +26,11 @@ public class JwtUtil {
 
     // Extrai o nome de usuário do token JWT
     public String extractUsername(String token) {
+        return extractClaims(token).getSubject();
+    }
+
+    // Extrai o nome de usuário do token JWT
+    public String extrairEmailToken(String token) {
         // Obtém o assunto (nome de usuário) das claims do token
         return extractClaims(token).getSubject();
     }
