@@ -10,6 +10,9 @@ import com.javanauta.agendadoratarefas.infrastructure.exceptions.ResourceNotFoun
 import com.javanauta.agendadoratarefas.infrastructure.repository.TarefasRepository;
 import com.javanauta.agendadoratarefas.infrastructure.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -24,65 +27,68 @@ public class TarefasService {
     private final JwtUtil jwtUtil;
     private final TarefasUpdateConverter tarefasUpdateConverter;
 
+    private Authentication auth() {
+        return SecurityContextHolder.getContext().getAuthentication();
+    }
 
-    public TarefasDTO gravarTarefa(String token, TarefasDTO dto){
+    private boolean isAdmin() {
+        return auth().getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+    }
+
+    private TarefasEntity buscaTarefaAutorizada(String id) {
+        TarefasEntity entity = tarefasRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Tarefa não encontrada: " + id));
+
+        if (!isAdmin() && !entity.getEmailUsuario().equals(auth().getName())) {
+            throw new AccessDeniedException("Tarefa não pertence ao usuário autenticado");
+        }
+        return entity;
+    }
+
+    public TarefasDTO gravarTarefa(String token, TarefasDTO dto) {
         String email = jwtUtil.extrairEmailToken(token.substring(7));
+        dto.setId(null);
         dto.setDataCriacao(LocalDateTime.now());
         dto.setStatusNotificacaoEnum(StatusNotificacaoEnum.PENDENTE);
         dto.setEmailUsuario(email);
         TarefasEntity entity = tarefasConverter.paraTarefaEntity(dto);
-
-        return tarefasConverter.paraTarefaDTO(
-                tarefasRepository.save(entity));
+        return tarefasConverter.paraTarefaDTO(tarefasRepository.save(entity));
     }
 
-
-    public List<TarefasDTO> buscaTarefasAgendadasPorPeriodo(LocalDateTime dataInicial, LocalDateTime dataFinal){
-
+    public List<TarefasDTO> buscaTarefasAgendadasPorPeriodo(LocalDateTime dataInicial,
+                                                            LocalDateTime dataFinal) {
         return tarefasConverter.paraListaTarefasDTO(
-                tarefasRepository.findByDataEventoBetween(dataInicial, dataFinal));
+                tarefasRepository.findByDataEventoBetweenAndStatusNotificacaoEnum(
+                        dataInicial,
+                        dataFinal));
     }
 
-    public List<TarefasDTO> buscaTarefasPorEmail(String token){
+    public List<TarefasDTO> buscaTarefasPorEmail(String token) {
         String email = jwtUtil.extrairEmailToken(token.substring(7));
-        List<TarefasEntity> listaTarefas = tarefasRepository.findByEmailUsuario(email);
-
-        return tarefasConverter.paraListaTarefasDTO(listaTarefas);
+        return tarefasConverter.paraListaTarefasDTO(
+                tarefasRepository.findByEmailUsuario(email));
     }
 
     public void deletarTarefasPorId(String id) {
-        try {
-        tarefasRepository.deleteById(id);
-    } catch (ResourceNotFoundException e) {
-            throw new ResourceNotFoundException(("Erro ao deletar tarefa por id, ide inexistente " + id),
-                    e.getCause());
-        }
+        TarefasEntity entity = buscaTarefaAutorizada(id);
+        tarefasRepository.delete(entity);
     }
 
     public TarefasDTO alteraStatus(StatusNotificacaoEnum status, String id) {
-        try {
-            TarefasEntity entity = tarefasRepository.findById(id).
-                    orElseThrow(() -> new ResourceNotFoundException("Tarefa não encontrada " + id));
-            entity.setStatusNotificacaoEnum(status);
-
-            return tarefasConverter.paraTarefaDTO(tarefasRepository.save(entity));
-        } catch (ResourceNotFoundException e) {
-            throw new ResourceNotFoundException("Erro ao alterar o status da tarefa " + e.getCause());
-        }
+        TarefasEntity entity = buscaTarefaAutorizada(id);
+        entity.setStatusNotificacaoEnum(status);
+        entity.setDataAlteracao(LocalDateTime.now());
+        return tarefasConverter.paraTarefaDTO(tarefasRepository.save(entity));
     }
 
-    public TarefasDTO updateTarefas(TarefasDTO dto, String id){
-        try {
-            TarefasEntity entity = tarefasRepository.findById(id).
-                    orElseThrow(() -> new ResourceNotFoundException("Tarefa não encontrada " + id));
-            tarefasUpdateConverter.updateTarefas(dto, entity);
-            return tarefasConverter.paraTarefaDTO(tarefasRepository.save(entity));
-            
-        } catch (ResourceNotFoundException e) {
-            throw new ResourceNotFoundException("Erro ao alterar o status da tarefa " + e.getCause());
-        }
-
+    public TarefasDTO updateTarefas(TarefasDTO dto, String id) {
+        TarefasEntity entity = buscaTarefaAutorizada(id);
+        dto.setEmailUsuario(null);
+        dto.setId(null);
+        tarefasUpdateConverter.updateTarefas(dto, entity);
+        entity.setDataAlteracao(LocalDateTime.now());
+        return tarefasConverter.paraTarefaDTO(tarefasRepository.save(entity));
     }
-
-
 }
+
